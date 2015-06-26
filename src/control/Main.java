@@ -17,29 +17,21 @@ import utils.UtilResults;
 public class Main {
 
 	public static String searchChange = "I09052027acd847acd45b798cce1fbfb3ab069c4d";
-	private static final String allAprovalsFile = "C:\\Users\\Gerusa\\workspace\\GerritData\\ginga_approvals.txt";
+	private static final String dataToReadGinga = "C:\\Users\\Gerusa\\Documents\\GitHub\\gerritproject\\ginga_approvals.txt";
+	private static final String dataToReadResearch = "C:\\Users\\Gerusa\\Documents\\GitHub\\gerritproject\\codeReviewMeasure.txt";
+	private static final String dataResultGinga = "ProjectGinga.xls";
+	private static final String dataResultResearch = "ProjectResearch.xls";
+	private static final String sheetResearch = "C:\\Users\\Gerusa\\Documents\\GitHub\\gerritproject\\Result.xls";
 
 	public static void main(String[] args) throws RowsExceededException,
 			WriteException, IOException {
-		
-		ArrayList<Changes> changes = UtilResults.returnChanges(allAprovalsFile);
 
-		UtilResults.setChangesValues(changes);
+		UtilResults.createDataExcelFileByChanges(dataToReadGinga,
+				dataResultGinga, true);
+		UtilResults.createDataExcelFileByPatch(dataToReadResearch,
+				dataResultResearch, sheetResearch);
 
-		// clean changes with time <=0
-		UtilResults.selectPatchsets(changes);
-		Changes.setOwnerPosition();
-
-		UtilResults.countApprovalsByLevel(changes);
-
-		UtilResults.removeOwnerFromList("Tomohiro Shirane",
-				Changes.ownersPosition);
-
-		UtilResults.setNivelSixSigma(changes);
-
-		ExcelData.writeExcel(changes);
-
-		//UtilResults.showGeneralInformationChange(changes, searchChange);
+		// UtilResults.showGeneralInformationChange(changes, searchChange);
 
 	}
 }

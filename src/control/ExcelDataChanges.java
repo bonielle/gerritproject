@@ -7,21 +7,20 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import jxl.Workbook;
+import jxl.write.Label;
+import jxl.write.Number;
+import jxl.write.WritableSheet;
+import jxl.write.WritableWorkbook;
+import jxl.write.WriteException;
+import jxl.write.biff.RowsExceededException;
 import model.Approval;
 import model.Changes;
 import model.PatchSet;
-
-import org.apache.poi.ss.util.SheetUtil;
-
 import utils.Constants;
 import utils.UtilResults;
-import jxl.Workbook;
-import jxl.WorkbookSettings;
-import jxl.write.*;
-import jxl.write.Number;
-import jxl.write.biff.RowsExceededException;
 
-public class ExcelData {
+public class ExcelDataChanges {
 
 	private final int changeIdColumm = 0;
 
@@ -57,8 +56,6 @@ public class ExcelData {
 
 	private WritableWorkbook workbook;
 
-	private final String fileName = "excel_data.xls";
-
 	private final String changesResults;
 
 	private WritableSheet sheetChangeResults;
@@ -75,13 +72,13 @@ public class ExcelData {
 
 	private WritableSheet sheetApprovals;
 
-	private static ExcelData sSingleton;
+	private static ExcelDataChanges sSingleton;
 
-	private ExcelData(List<Changes> data) throws IOException,
+	private ExcelDataChanges(List<Changes> data, String fileName) throws IOException,
 			RowsExceededException, WriteException {
 		super();
 		changesResults = Changes.class.getName();
-		readFile();
+		readFile(fileName);
 		initializesChangeSheet();
 		initializesPatchSetSheet(sheetIntern);
 		initializesPatchSetSheet(sheetJunior);
@@ -95,9 +92,9 @@ public class ExcelData {
 		workbook.close();
 	}
 
-	public static void writeExcel(List<Changes> data)
+	public static void writeExcel(List<Changes> data, String fileName)
 			throws RowsExceededException, WriteException, IOException {
-		sSingleton = new ExcelData(data);
+		sSingleton = new ExcelDataChanges(data,fileName);
 	}
 
 	private void readChangeResult(List<Changes> data)
@@ -213,7 +210,7 @@ public class ExcelData {
 		sheetChangeResults.addCell(qnt_reviewer_approval);
 	}
 
-	private void readFile() throws IOException {
+	private void readFile(String fileName) throws IOException {
 		workbook = Workbook.createWorkbook(new File(fileName));
 		sheetChangeResults = workbook.createSheet(changesResults, 0);
 		sheetIntern = workbook.createSheet(Constants.INTERNSHIP, 1);

@@ -1,8 +1,10 @@
 package utils;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.sql.Time;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -10,12 +12,24 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import jxl.Cell;
+import jxl.Sheet;
+import jxl.Workbook;
+import jxl.read.biff.BiffException;
+import jxl.write.WriteException;
+import jxl.write.biff.RowsExceededException;
 import model.Changes;
+import model.CodeReviewSheet;
 import model.PatchSet;
 
+import org.apache.poi.util.StringUtil;
 import org.json.JSONArray;
 import org.json.JSONObject;
+
+import control.ExcelDataChanges;
+import control.ExcelDataPatchSet;
 
 public class UtilResults {
 
@@ -26,9 +40,11 @@ public class UtilResults {
 
 		try {
 			br = new BufferedReader(new FileReader(filePath));
-			while ((sCurrentLine = br.readLine()) != null
-					&& sCurrentLine.contains("project")) {
-				changes.add(getAllApprovalsValues(sCurrentLine));
+			while ((sCurrentLine = br.readLine()) != null) {
+				if (sCurrentLine.contains("project")) {
+					changes.add(getAllApprovalsValues(sCurrentLine));
+				}
+
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -165,7 +181,6 @@ public class UtilResults {
 			list.remove(owner);
 		}
 	}
-	
 
 	public static void setNivelSixSigma(ArrayList<Changes> changes) {
 
@@ -218,7 +233,6 @@ public class UtilResults {
 			Changes.getAllOwners();
 		}
 	}
-	
 
 	public static void showGeneralInformationChange(List<Changes> changes,
 			String change) {
@@ -261,5 +275,175 @@ public class UtilResults {
 
 			}
 		}
+	}
+
+	public static ArrayList<Changes> removeChangesDuplicated(
+			ArrayList<Changes> changes) {
+
+		ArrayList<Changes> arrayChagesNoDuplicated = new ArrayList<Changes>();
+		Map<String, Changes> changesNoDuplicated = new HashMap<String, Changes>();
+
+		for (Iterator iterator = changes.iterator(); iterator.hasNext();) {
+			Changes id = (Changes) iterator.next();
+			changesNoDuplicated.put(id.getChangeId(), id);
+		}
+
+		for (Map.Entry<String, Changes> entry : changesNoDuplicated.entrySet()) {
+			Changes obj = entry.getValue();
+			arrayChagesNoDuplicated.add(obj);
+		}
+
+		System.out.println("Num. changes:" + changesNoDuplicated.size());
+		return arrayChagesNoDuplicated;
+	}
+
+	public static void createDataExcelFileByPatch(String dataToRead,
+			String dataResults, String resultsResearch) {
+		ArrayList<Changes> changes = UtilResults.returnChanges(dataToRead);
+
+		ArrayList<Changes> changesNoDuplicated = removeChangesDuplicated(changes);
+		UtilResults.setChangesValues(changesNoDuplicated);
+		// clean changes with time <=0
+		// UtilResults.selectPatchsets(changesNoDuplicated);
+		Changes.setOwnerPosition();
+		UtilResults.countApprovalsByLevel(changesNoDuplicated);
+		ArrayList<CodeReviewSheet> codeReviewSeet = readSheetResults(resultsResearch);
+		Changes change = UtilResults.getChangeById(
+				"I517845551c9cea372e27c35f6c83dadcf46a0635",
+				changesNoDuplicated);
+
+		try {
+			ExcelDataPatchSet.writeExcel(changesNoDuplicated, dataResults,
+					codeReviewSeet);
+		} catch (WriteException | IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
+
+	public static ArrayList<CodeReviewSheet> readSheetResults(
+			String resultsResearch) {
+
+		ArrayList<CodeReviewSheet> codeReviewInfo = new ArrayList<CodeReviewSheet>();
+
+		// get changes + number patchset
+		try {
+			Workbook workbook = Workbook.getWorkbook(new File(resultsResearch));
+			Sheet sheet = workbook.getSheet(0);
+
+			int linhas = sheet.getRows();
+			for (int i = 1; i < linhas; i++) {
+
+				CodeReviewSheet review = new CodeReviewSheet();
+
+				Cell patchSet = sheet.getCell(2, i);
+				Cell changeId = sheet.getCell(3, i);
+				Cell reviewTime = sheet.getCell(4, i);
+				Cell dev = sheet.getCell(5, i);
+				Cell project = sheet.getCell(6, i);
+				Cell dateReview = sheet.getCell(7, i);
+				Cell complexity = sheet.getCell(8, i);
+
+				int patch = Integer.parseInt(patchSet.getContents());
+
+				String id = changeId.getContents();
+				String time = reviewTime.getContents();
+				String dev_level = dev.getContents();
+				String project_name = project.getContents();
+				String date = dateReview.getContents();
+				String change_complexity = complexity.getContents();
+				review.setChangeId(id);
+
+				String[] stringTime = readTime(time);
+
+				int h = Integer.parseInt(stringTime[0]);
+				int m = Integer.parseInt(stringTime[1]);
+				int s = Integer.parseInt(stringTime[2]);
+
+				Time objTime = new Time(h, m, s);
+				review.setPatchSet(patch);
+				review.setReviewTime(objTime);
+				review.setDev(dev_level);
+				review.setProject(project_name);
+				review.setComplexity(change_complexity);
+				codeReviewInfo.add(review);
+			}
+
+		} catch (BiffException | IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+
+		return codeReviewInfo;
+	}
+
+	public static String[] readTime(String time) {
+		String[] stringTime = time.split(":");
+		return stringTime;
+	}
+
+	public static PatchSet getPatchSetByNumber(Changes change, int numberPatch) {
+
+		ArrayList<PatchSet> allPatch = null;
+		allPatch = change.getPatchSets();
+		PatchSet patch = new PatchSet();
+
+		for (Iterator iterator = allPatch.iterator(); iterator.hasNext();) {
+			PatchSet patchSet = (PatchSet) iterator.next();
+
+			if (patchSet.getNumber() == numberPatch) {
+				patch = patchSet;
+				return patch;
+			}
+		}
+
+		return null;
+	}
+
+	public static Changes getChangeById(String id, ArrayList<Changes> changes) {
+		Changes obj = new Changes();
+
+		for (Iterator iterator = changes.iterator(); iterator.hasNext();) {
+			Changes changeObj = (Changes) iterator.next();
+
+			if (changeObj.getChangeId().equals(id)) {
+				obj = changeObj;
+				return obj;
+			}
+		}
+		return null;
+	}
+
+	public static void createDataExcelFileByChanges(String dataToRead,
+			String dataResults, boolean isGingaProject) {
+
+		ArrayList<Changes> changes = UtilResults.returnChanges(dataToRead);
+
+		ArrayList<Changes> changesNoDuplicated = removeChangesDuplicated(changes);
+		UtilResults.setChangesValues(changesNoDuplicated);
+		// clean changes with time <=0
+		UtilResults.selectPatchsets(changesNoDuplicated);
+		Changes.setOwnerPosition();
+		UtilResults.countApprovalsByLevel(changesNoDuplicated);
+		if (isGingaProject) {
+			UtilResults.removeOwnerFromList("Tomohiro Shirane",
+					Changes.ownersPosition);
+		}
+
+		UtilResults.setNivelSixSigma(changesNoDuplicated);
+		try {
+			ExcelDataChanges.writeExcel(changesNoDuplicated, dataResults);
+		} catch (RowsExceededException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (WriteException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
 	}
 }
